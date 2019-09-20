@@ -36,11 +36,8 @@ def create_sound_wave_graph(sound_wave_file_name: Text,
   """
   sound_wave_file = wave.open(sound_wave_file_name, 'r')
 
-  if sound_wave_file.getnchannels() == 2:  # 2 is stereo.
-    raise ValueError('Just mono files')
-
-  pyplot.figure(1)
-  pyplot.title('Signal Wave...')
+  pyplot.figure(1, figsize=(16, 12), dpi=72)
+  pyplot.title('Signal Wave')
 
   signal = sound_wave_file.readframes(-1)
   signal = np.fromstring(signal, 'Int16')

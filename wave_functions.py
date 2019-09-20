@@ -98,17 +98,17 @@ def get_random_wave(
   return random_sound_wave
 
 
-def get_spike_function(
+def get_sawtooth_function(
         wave_options: Optional[WaveOptions] = None) -> WaveFunction:
   """Gets a wave function that works in spikes."""
   max_range = abs(_MIN_INT16) + abs(_MAX_INT16)
 
-  def spikes_sound_wave(sample_frame: int) -> int:
+  def sawtooth_sound_wave(sample_frame: int) -> int:
     spike_round = int(sample_frame / max_range)
     sample_value = sample_frame + _MIN_INT16 - spike_round * max_range
     return int(sample_value)
 
-  return spikes_sound_wave
+  return sawtooth_sound_wave
 
 
 class SoundWaveType(enum.Enum):
@@ -116,12 +116,12 @@ class SoundWaveType(enum.Enum):
   SIN_WAVE = 'sin'
   X2_WAVE = 'x**2'
   RANDOM_WAVE = 'random'
-  SPIKE_WAVE = 'spike'
+  SAWTOOTH_WAVE = 'sawtooth'
 
 
 SOUND_WAVE_FUNCTION_MAP = {
     SoundWaveType.SIN_WAVE: get_sin_wave,
     SoundWaveType.X2_WAVE: get_x2_wave,
     SoundWaveType.RANDOM_WAVE: get_random_wave,
-    SoundWaveType.SPIKE_WAVE: get_spike_function,
+    SoundWaveType.SAWTOOTH_WAVE: get_sawtooth_function,
 }

@@ -8,8 +8,8 @@ import wave_plotter
 
 _SOUND_FILE_NAME = 'sounds/sound.wav'
 _SOUND_DURATION_IN_SECONDS = 3
-_SOUND_WAVE_TYPE = wave_functions.SoundWaveType.SPIKE_WAVE
-_SOUND_WAVE_GRAPH_TYPE = wave_plotter.WaveGraphType.PER_SECOND
+_SOUND_WAVE_TYPE = wave_functions.SoundWaveType.SIN_WAVE
+_SOUND_WAVE_GRAPH_TYPE = wave_plotter.WaveGraphType.PER_FRAME
 
 if __name__ == "__main__":
   wave_creator.create_sound_wave_file(
