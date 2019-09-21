@@ -3,6 +3,7 @@
 import enum
 import math
 import random
+import wave_math
 from typing import Any, Callable, Mapping, Optional, Text
 
 _DEFAULT_DEBUG_MODE = False
@@ -158,19 +159,24 @@ class WaveFunctionBuilder(object):
 
     samples_per_cycle = self._get_samples_per_cycle(wave_options)
 
-    def _limit_sample_to_range(sample_value: int) -> int:
-      """Returns a sound value within range.
+    def _normalize_sample_value(sample_value: wave_math.Number) -> int:
+      """Applies common normalization operations to sample value.
+
+      Normalizations:
+        - Adjust sample value by volume.
+        - Limit value to a specific range.
+        - Transform value to integer.
 
       Args:
-        sound_value: Proposed sample value.
+        sample_value: Value of the sample.
 
       Returns:
-        Sound value within limits.
+        Value of the sample, after normalization opperations are applied.
       """
-      if sample_value >= max_value:
-        return max_value
-      if sample_value <= min_value:
-        return min_value
+      sample_value = sample_value * volume_adjustment
+      sample_value = wave_math.limit_value_to_range(
+          sample_value, min_value, max_value)
+      sample_value = int(sample_value)
       return sample_value
 
     if sound_wave_type == SoundWaveType.SIN_WAVE:
@@ -184,36 +190,34 @@ class WaveFunctionBuilder(object):
         """
         sample_frequency = self._get_sample_frame_frequency(
             sample_frame, wave_options)
-        sin_value = max_value * math.sin(2 * math.pi * sample_frequency)
-        sample_value = int(sin_value * volume_adjustment)
+        sample_value = max_value * math.sin(2 * math.pi * sample_frequency)
         if debug_mode:
           print(
               f'{sample_frame}: {max_value} * sin(2π{sample_frequency})'
-              f' * {volume_adjustment} = {sample_value}')
-        return _limit_sample_to_range(sample_value)
+              f' = {sample_value}')
+        return _normalize_sample_value(sample_value)
       return sin_sound_wave
 
     if sound_wave_type == SoundWaveType.SAWTOOTH_WAVE:
       def sawtooth_sound_wave(sample_frame: int) -> int:
         """Sawtooth wave function."""
         spike_cycle = int(sample_frame / max_range)
-        spike_value = sample_frame + min_value - spike_cycle * max_range
-        sample_value = int(spike_value * volume_adjustment)
+        sample_value = sample_frame + min_value - spike_cycle * max_range
         if debug_mode:
           print(
               f'{sample_frame}: {sample_frame} + {min_value} - {spike_cycle} '
-              f'* {max_range} * {volume_adjustment} = {sample_value}')
-        return _limit_sample_to_range(sample_value)
+              f'* {max_range} = {sample_value}')
+        return _normalize_sample_value(sample_value)
       return sawtooth_sound_wave
 
     if sound_wave_type == SoundWaveType.RANDOM_WAVE:
       def random_sound_wave(sample_frame: int) -> int:
         """Gets a random value wave."""
         del sample_frame  # Unused, but intended to keep same fn signature.
-        random_sample = int(random.randint(min_value, max_value))
+        random_sample = random.randint(min_value, max_value)
         if debug_mode:
           print(f'{sample_frame}: {random_sample}')
-        return _limit_sample_to_range(random_sample)
+        return _normalize_sample_value(random_sample)
       return random_sound_wave
 
     if sound_wave_type == SoundWaveType.X2_WAVE:
@@ -222,13 +226,10 @@ class WaveFunctionBuilder(object):
         m = 4 * (min_value - max_value) / (samples_per_cycle ** 2)
         b = max_value
         x = sample_frame % samples_per_cycle
-        fn_value = m * (x ** 2) + b
-        sample_value = int(fn_value * volume_adjustment)
+        sample_value = m * (x ** 2) + b
         if debug_mode:
-          print(
-              f'{sample_frame}: ({m} * {x}^2 + {b}) * {volume_adjustment} '
-              f'= {sample_value}')
-        return _limit_sample_to_range(sample_value)
+          print(f'{sample_frame}: ({m} * {x}^2 + {b}) = {sample_value}')
+        return _normalize_sample_value(sample_value)
       return x2_sound_wave
 
     raise ValueError(f'Unknown wave type: {sound_wave_type}')
