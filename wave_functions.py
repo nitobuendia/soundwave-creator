@@ -4,22 +4,38 @@ import enum
 import math
 import random
 import wave_math
-from typing import Any, Callable, Mapping, Optional, Text
-
-_DEFAULT_DEBUG_MODE = False
-_DEFAULT_VOLUME = 100
-_DEFAULT_FREQUENCY = 440
-_DEFAULT_SAMPLE_RATE = 44100  # Number of frames/samples per second (standard).
-
-_MIN_INT16 = -32768
-_MAX_INT16 = 32767
+from typing import Any, Callable, Mapping, Optional, Text, Tuple
 
 
-class SoundWaveOptions(enum.Enum):
+class SoundWaveOption(enum.Enum):
   """Represents options to configure the waves."""
-  DEBUG = 'debug'  # Debug mode allows printing formulas and others.
+  # Wave amplitude. Determines min and max sample values.
+  AMPLITUDE = 'amplitude'
+  # Wave amplitude adjustment. Adjusts min and max value samples by a %.
+  AMPLITUDE_ADJUSTMENT = 'amplitude_adjustment'
+  # Debug mode allows printing formulas and others.
+  DEBUG = 'debug'
   FREQUENCY = 'frequency'
+  # Max value that the wave can take. Defaults to positive Amplitude.
+  MAX_WAVE_VALUE = 'max_wave_value'
+  # Min value that the wave can take. Defaults to negative Amplitude.
+  MIN_WAVE_VALUE = 'min_wave_value'
+  SAMPLE_RATE = 'sample_rate'
+  # Volume of the sample. Floats from 0 to 1 are recommended values.
   VOLUME = 'volume'
+
+
+_DEFAULT_WAVE_OPTIONS = {
+    SoundWaveOption.AMPLITUDE: 32767,  # Int16 (-A, +A)
+    SoundWaveOption.AMPLITUDE_ADJUSTMENT: 1,  # 100%
+    SoundWaveOption.DEBUG: False,
+    SoundWaveOption.FREQUENCY: 440,
+    SoundWaveOption.MAX_WAVE_VALUE: 32767,  # Int16 (A)
+    SoundWaveOption.MIN_WAVE_VALUE: -32767,  # Int16 (-A), adjusted.
+    # Number of frames/samples per second (standard).
+    SoundWaveOption.SAMPLE_RATE: 44100,
+    SoundWaveOption.VOLUME: 1,  # 100%
+}
 
 
 class SoundWaveType(enum.Enum):
@@ -31,7 +47,7 @@ class SoundWaveType(enum.Enum):
 
 
 # Configuration of the wave options.
-WaveOptions = Mapping[SoundWaveOptions, Any]
+WaveOptions = Mapping[SoundWaveOption, Any]
 
 # A wave function takes the frame and outputs the sample for the frame.
 WaveFunction = Callable[[int], int]
@@ -62,6 +78,25 @@ class WaveFunctionBuilder(object):
     combined_wave_options.update(wave_options)
     return combined_wave_options
 
+  def _get_wave_option_value(
+          self, wave_options: WaveOptions, option: SoundWaveOption) -> Any:
+    """Gets the value for a given wave option, or its default value if not set.
+
+    Args:
+      wave_options: Wave configuration.
+      option: Option to get from configuration.
+
+    Raises:
+      ValueError: Unknown SoundWaveOption.
+
+    Returns:
+      Config value for given wave option feature.
+    """
+    if option not in _DEFAULT_WAVE_OPTIONS:
+      raise ValueError(f'Unknown sound wave feature: {option}')
+    default_value = _DEFAULT_WAVE_OPTIONS[option]
+    return wave_options.get(option, default_value)
+
   def _get_debug_mode(self, wave_options: WaveOptions) -> bool:
     """Gets whether to debug wave or not.
 
@@ -71,7 +106,7 @@ class WaveFunctionBuilder(object):
     Returns:
       Whether to apply debug mode.
     """
-    return wave_options.get(SoundWaveOptions.DEBUG, _DEFAULT_DEBUG_MODE)
+    return self._get_wave_option_value(wave_options, SoundWaveOption.DEBUG)
 
   def _get_volume(self, wave_options: WaveOptions) -> float:
     """Gets the volume based on wave options.
@@ -82,18 +117,69 @@ class WaveFunctionBuilder(object):
     Returns:
       Volume.
     """
-    return float(wave_options.get(SoundWaveOptions.VOLUME, _DEFAULT_VOLUME))
+    return float(
+        self._get_wave_option_value(wave_options, SoundWaveOption.VOLUME))
 
-  def _get_volume_adjustment(self, wave_options: WaveOptions) -> float:
-    """Gets the volume adjustment based on wave options.
+  def _get_wave_amplitude(self, wave_options: WaveOptions) -> int:
+    """Gets the wave amplitude.
 
     Args:
       wave_options: Wave configuration.
 
     Returns:
-      Volume adjustment.
+      Wave amplitude.
     """
-    return self._get_volume(wave_options) / 100
+    wave_amplitude = self._get_wave_option_value(
+        wave_options, SoundWaveOption.AMPLITUDE)
+    wave_adjustment = self._get_wave_option_value(
+        wave_options, SoundWaveOption.AMPLITUDE_ADJUSTMENT)
+    return int(wave_amplitude * wave_adjustment)
+
+  def _get_min_wave_value(self, wave_options: WaveOptions) -> int:
+    """Gets the min value that the wave can take.
+
+    Args:
+      wave_options: Wave configuration.
+
+    Returns:
+      Min value limit for the sample value.
+    """
+    wave_amplitude = self._get_wave_amplitude(wave_options)
+    min_allowed_value = _DEFAULT_WAVE_OPTIONS.get(
+        SoundWaveOption.MIN_WAVE_VALUE)
+
+    # Avoid overflow by limitting to the most restrictive.
+    return max(-wave_amplitude, min_allowed_value)
+
+  def _get_max_wave_value(self, wave_options: WaveOptions) -> int:
+    """Gets the max value that the wave can take.
+
+    Args:
+      wave_options: Wave configuration.
+
+    Returns:
+      Max value limit for the sample value.
+    """
+    wave_amplitude = self._get_wave_amplitude(wave_options)
+    max_allowed_value = _DEFAULT_WAVE_OPTIONS.get(
+        SoundWaveOption.MAX_WAVE_VALUE)
+
+    # Avoid overflow by limitting to the most restrictive.
+    return min(wave_amplitude, max_allowed_value)
+
+  def _get_wave_value_range(
+          self, wave_options: WaveOptions) -> Tuple[int, int, int]:
+    """Gets the range of values for the wave.
+
+    Args:
+      wave_options: Wave configuration.
+
+    Returns:
+     Range of values for the sample value.
+    """
+    min_value = self._get_min_wave_value(wave_options)
+    max_value = self._get_max_wave_value(wave_options)
+    return abs(min_value) + abs(max_value)
 
   def _get_wave_frequency(self, wave_options: WaveOptions) -> float:
     """Gets the wave frequency.
@@ -104,7 +190,19 @@ class WaveFunctionBuilder(object):
     Returns:
       Wave frequency.
     """
-    return wave_options.get(SoundWaveOptions.FREQUENCY, _DEFAULT_FREQUENCY)
+    return self._get_wave_option_value(wave_options, SoundWaveOption.FREQUENCY)
+
+  def _get_wave_sample_rate(self, wave_options: WaveOptions) -> int:
+    """Gets the wave sample rate.
+
+    Args:
+      wave_options: Wave configuration.
+
+    Returns:
+      Wave sample rate.
+    """
+    return self._get_wave_option_value(
+        wave_options, SoundWaveOption.SAMPLE_RATE)
 
   def _get_samples_per_cycle(self, wave_options: WaveOptions) -> int:
     """Gets number of samples that will be generated per wave cycle.
@@ -116,7 +214,8 @@ class WaveFunctionBuilder(object):
       Samples per cycle.
     """
     wave_frequency = self._get_wave_frequency(wave_options)
-    return int(_DEFAULT_SAMPLE_RATE / wave_frequency)
+    wave_sample_rate = self._get_wave_sample_rate(wave_options)
+    return int(wave_sample_rate / wave_frequency)
 
   def _get_sample_frame_frequency(
           self, sample_frame: int, wave_options: WaveOptions) -> float:
@@ -133,7 +232,7 @@ class WaveFunctionBuilder(object):
 
   def get_wave_function(
           self, sound_wave_type: SoundWaveType,
-          wave_specific_options: Optional[SoundWaveOptions] = None
+          wave_specific_options: Optional[SoundWaveOption] = None
   ) -> WaveFunction:
     """Gets a sound wave generator.
 
@@ -150,12 +249,11 @@ class WaveFunctionBuilder(object):
     wave_options = self._get_merged_wave_options(wave_specific_options)
 
     debug_mode = self._get_debug_mode(wave_options)
+    volume_adjustment = self._get_volume(wave_options)
 
-    volume_adjustment = self._get_volume_adjustment(wave_options)
-
-    min_value = _MIN_INT16
-    max_value = _MAX_INT16
-    max_range = abs(min_value) + abs(max_value)
+    min_sample_value = self._get_min_wave_value(wave_options)
+    max_sample_value = self._get_max_wave_value(wave_options)
+    sample_value_range = self._get_wave_value_range(wave_options)
 
     samples_per_cycle = self._get_samples_per_cycle(wave_options)
 
@@ -175,7 +273,7 @@ class WaveFunctionBuilder(object):
       """
       sample_value = sample_value * volume_adjustment
       sample_value = wave_math.limit_value_to_range(
-          sample_value, min_value, max_value)
+          sample_value, min_sample_value, max_sample_value)
       sample_value = int(sample_value)
       return sample_value
 
@@ -190,10 +288,11 @@ class WaveFunctionBuilder(object):
         """
         sample_frequency = self._get_sample_frame_frequency(
             sample_frame, wave_options)
-        sample_value = max_value * math.sin(2 * math.pi * sample_frequency)
+        sample_value = (
+            max_sample_value * math.sin(2 * math.pi * sample_frequency))
         if debug_mode:
           print(
-              f'{sample_frame}: {max_value} * sin(2π{sample_frequency})'
+              f'{sample_frame}: {max_sample_value} * sin(2π{sample_frequency})'
               f' = {sample_value}')
         return _normalize_sample_value(sample_value)
       return sin_sound_wave
@@ -201,12 +300,13 @@ class WaveFunctionBuilder(object):
     if sound_wave_type == SoundWaveType.SAWTOOTH_WAVE:
       def sawtooth_sound_wave(sample_frame: int) -> int:
         """Sawtooth wave function."""
-        spike_cycle = int(sample_frame / max_range)
-        sample_value = sample_frame + min_value - spike_cycle * max_range
+        spike_cycle = int(sample_frame / sample_value_range)
+        sample_value = (
+            sample_frame + min_sample_value - spike_cycle * sample_value_range)
         if debug_mode:
           print(
-              f'{sample_frame}: {sample_frame} + {min_value} - {spike_cycle} '
-              f'* {max_range} = {sample_value}')
+              f'{sample_frame}: {sample_frame} + {min_sample_value} '
+              f'- {spike_cycle} * {max_range} = {sample_value}')
         return _normalize_sample_value(sample_value)
       return sawtooth_sound_wave
 
@@ -214,7 +314,7 @@ class WaveFunctionBuilder(object):
       def random_sound_wave(sample_frame: int) -> int:
         """Gets a random value wave."""
         del sample_frame  # Unused, but intended to keep same fn signature.
-        random_sample = random.randint(min_value, max_value)
+        random_sample = random.randint(min_sample_value, max_sample_value)
         if debug_mode:
           print(f'{sample_frame}: {random_sample}')
         return _normalize_sample_value(random_sample)
@@ -223,8 +323,9 @@ class WaveFunctionBuilder(object):
     if sound_wave_type == SoundWaveType.X2_WAVE:
       def x2_sound_wave(sample_frame: int) -> int:
         """Creates a sound wave with x**2 function."""
-        m = 4 * (min_value - max_value) / (samples_per_cycle ** 2)
-        b = max_value
+        m = 4 * (
+            min_sample_value - max_sample_value) / (samples_per_cycle ** 2)
+        b = max_sample_value
         x = sample_frame % samples_per_cycle
         sample_value = m * (x ** 2) + b
         if debug_mode:
