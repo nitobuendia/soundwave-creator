@@ -34,12 +34,8 @@ def create_sound_wave_file(
   Returns:
     Array representing the sound wave.
   """
-  sound_wave_generator = (
-      wave_functions.SOUND_WAVE_FUNCTION_MAP.get(sound_wave_type))
-  if not sound_wave_generator:
-    raise ValueError(f'Unknown wave type: {sound_wave_type}')
-
-  sound_wave_function = sound_wave_generator(wave_options)
+  wave_builder = wave_functions.WaveFunctionBuilder(wave_options)
+  sound_wave_function = wave_builder.get_wave_function(sound_wave_type)
 
   num_samples = int(duration * wave_functions._DEFAULT_SAMPLE_RATE)
   sound_samples = _create_sound_sample(sound_wave_function, num_samples)
