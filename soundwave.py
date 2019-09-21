@@ -9,9 +9,9 @@ import wave_plotter
 _SOUND_FILE_NAME = 'sounds/sound.wav'
 _SOUND_DURATION_IN_SECONDS = 3
 
-_SOUND_WAVE_TYPE = wave_generator.SoundWaveType.SIN_WAVE
 _SOUND_WAVE_OPTIONS = {
     wave_generator.SoundWaveOption.DEBUG: False,
+    wave_generator.SoundWaveOption.FREQUENCY: 440,
 }
 
 _FILE_OPTIONS = {
@@ -22,10 +22,11 @@ _SOUND_WAVE_GRAPH_TYPE = wave_plotter.WaveGraphType.PER_FRAME
 
 
 if __name__ == "__main__":
-  wave_sound_generator = wave_generator.WaveSoundGenerator()
+  wave_sound_generator = wave_generator.WaveSoundGenerator(_SOUND_WAVE_OPTIONS)
 
+  first_wave_type = wave_generator.SoundWaveType.X2_WAVE
   sound_wave_data = wave_sound_generator.get_wave_sound_samples(
-      _SOUND_DURATION_IN_SECONDS, _SOUND_WAVE_TYPE, _SOUND_WAVE_OPTIONS)
+      _SOUND_DURATION_IN_SECONDS, first_wave_type)
 
   wave_creator.create_sound_file(
       _SOUND_DURATION_IN_SECONDS, sound_wave_data, _FILE_OPTIONS)
