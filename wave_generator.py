@@ -226,7 +226,10 @@ class WaveSoundGenerator(object):
     """
     wave_frequency = self._get_wave_frequency(wave_options)
     wave_sample_rate = self._get_wave_sample_rate(wave_options)
-    return int(wave_sample_rate / wave_frequency)
+    samples_per_cycle = int(round(wave_sample_rate / wave_frequency))
+    if samples_per_cycle >= 1:
+      return samples_per_cycle
+    return 1
 
   def _get_sample_frame_frequency(
           self, sample_frame: int, wave_options: WaveOptions) -> float:
@@ -333,14 +336,20 @@ class WaveSoundGenerator(object):
 
     if sound_wave_type == SoundWaveType.X2_WAVE:
       def x2_sound_wave(sample_frame: int) -> int:
-        """Creates a sound wave with x**2 function."""
-        m = 4 * (
-            min_sample_value - max_sample_value) / (samples_per_cycle ** 2)
-        b = max_sample_value
+        """Creates a sound wave with x**2 function.
+
+        X^2 function in the shape of:
+          y = a (x+b)^2 + c
+        """
+        a = 4 * (
+            max_sample_value - min_sample_value) / (samples_per_cycle ** 2)
+        b = -samples_per_cycle / 2
+        c = min_sample_value
         x = sample_frame % samples_per_cycle
-        sample_value = m * (x ** 2) + b
+        sample_value = a * ((x + b) ** 2) + c
         if debug_mode:
-          print(f'{sample_frame}: ({m} * {x}^2 + {b}) = {sample_value}')
+          print(
+              f'{sample_frame}: ({a} * ({x} + {b})^2 + {c}) = {sample_value}')
         return _normalize_sample_value(sample_value)
       return x2_sound_wave
 
