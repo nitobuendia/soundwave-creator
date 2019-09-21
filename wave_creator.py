@@ -2,14 +2,12 @@
 
 import array
 import wave
+import wave_settings
 from typing import Text
 
-# 2 bytes because of using signed short integers => bit depth = 16
-_DATA_SIZE = 2
 
 # Number of channels (1: mono, 2: stereo).
 _NUMBER_CHANNELS = 1
-
 _DEFAULT_COMPRESSION_TYPE = 'NONE'
 _DEFAULT_COMPRESSION_NAME = 'Uncompressed'
 
@@ -29,7 +27,7 @@ def create_sound_file(
     Sound file.
   """
   number_channels = _NUMBER_CHANNELS
-  sample_width = _DATA_SIZE
+  sample_width = wave_settings.BYTES_OF_DATA
   number_samples = len(sound_samples)
   sample_rate = int(number_samples / duration)
   compression_type = _DEFAULT_COMPRESSION_TYPE

@@ -5,6 +5,7 @@ import enum
 import math
 import random
 import wave_math
+import wave_settings
 from typing import Any, Callable, Mapping, Optional, Text, Tuple
 
 
@@ -21,19 +22,23 @@ class SoundWaveOption(enum.Enum):
   MAX_WAVE_VALUE = 'max_wave_value'
   # Min value that the wave can take. Defaults to negative Amplitude.
   MIN_WAVE_VALUE = 'min_wave_value'
+  # Number of frames/samples per second.
   SAMPLE_RATE = 'sample_rate'
   # Volume of the sample. Floats from 0 to 1 are recommended values.
   VOLUME = 'volume'
 
 
 _DEFAULT_WAVE_OPTIONS = {
-    SoundWaveOption.AMPLITUDE: 32767,  # Int16 (-A, +A)
+    # Amplitude must be always half the total range.
+    SoundWaveOption.AMPLITUDE: wave_math.get_max_value_from_bytes(
+        wave_settings.BYTES_OF_DATA, True) / 2,
     SoundWaveOption.AMPLITUDE_ADJUSTMENT: 1,  # 100%
     SoundWaveOption.DEBUG: False,
     SoundWaveOption.FREQUENCY: 440,
-    SoundWaveOption.MAX_WAVE_VALUE: 32767,  # Int16 (A)
-    SoundWaveOption.MIN_WAVE_VALUE: -32767,  # Int16 (-A), adjusted.
-    # Number of frames/samples per second (standard).
+    SoundWaveOption.MAX_WAVE_VALUE: wave_math.get_max_value_from_bytes(
+        wave_settings.BYTES_OF_DATA, wave_settings.SIGNED_INTEGER) - 1,
+    SoundWaveOption.MIN_WAVE_VALUE: wave_math.get_min_value_from_bytes(
+        wave_settings.BYTES_OF_DATA, wave_settings.SIGNED_INTEGER) + 1,
     SoundWaveOption.SAMPLE_RATE: 44100,
     SoundWaveOption.VOLUME: 1,  # 100%
 }
