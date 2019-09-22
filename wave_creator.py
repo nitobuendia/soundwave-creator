@@ -4,11 +4,7 @@ import array
 import enum
 import wave
 import wave_settings
-from typing import Any, Mapping, Text, Union
-
-
-# Number of channels (1: mono, 2: stereo).
-_NUMBER_CHANNELS = 1
+from typing import Any, Iterable, Mapping, Text, Union
 
 
 class SoundFileOption(enum.Enum):
@@ -49,37 +45,51 @@ def _get_file_option_value(
 
 def create_sound_file(
         duration: int,
-        sound_samples: array.array,
+        channels_data: Iterable[array.array],
         file_options: SoundFileOptions) -> wave.Wave_write:
   """Creates a sound file based on the provided sound samples.
 
   Args:
-    file_name: Name of the sound wave file to create.
     duration: Duration of the file in seconds.
-    sound_samples: Sound samples to write to file.
+    channels_data: Sound samples to write to each channel.
     file_options: File configuration.
+
+  Raises:
+    ValueError: channels_data must be an iterable of size >1.
 
   Returns:
     Sound file.
   """
+  if not channels_data:
+    raise ValueError('Must provide samples for at least one channel.')
+
   file_options = file_options or {}
+
   file_name = _get_file_option_value(file_options, SoundFileOption.FILE_NAME)
+  sound_file = wave.open(file_name, 'w')
+
+  number_channels = len(channels_data)
+  sample_width = wave_settings.BYTES_OF_DATA
+  first_sample = channels_data[0]
+  number_samples = len(first_sample)
+  sample_rate = int(number_samples / duration)
   compression_type = _get_file_option_value(
       file_options, SoundFileOption.COMPRESSION_TYPE)
   compression_name = _get_file_option_value(
       file_options, SoundFileOption.COMPRESSION_NAME)
 
-  sample_width = wave_settings.BYTES_OF_DATA
-
-  number_samples = len(sound_samples)
-  sample_rate = int(number_samples / duration)
-  number_channels = _NUMBER_CHANNELS
-
   sound_params = (number_channels, sample_width, sample_rate,
                   number_samples, compression_type, compression_name)
-
-  sound_file = wave.open(file_name, 'w')
   sound_file.setparams(sound_params)
-  sound_file.writeframes(sound_samples.tobytes())
+
+  mixed_sound_sample = array.array('h')
+  for keyframe in range(0, number_samples):
+    sample_total = 0
+    for channel in range(0, number_channels):
+      sample_total += channels_data[channel][keyframe]
+    mixed_sound_frame = int(sample_total / number_channels)
+    mixed_sound_sample.append(mixed_sound_frame)
+
+  sound_file.writeframes(mixed_sound_sample.tobytes())
   sound_file.close()
   return sound_file
