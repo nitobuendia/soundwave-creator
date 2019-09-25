@@ -15,6 +15,10 @@ class SoundWaveOption(enum.Enum):
   AMPLITUDE = 'amplitude'
   # Wave amplitude adjustment. Adjusts min and max value samples by a %.
   AMPLITUDE_ADJUSTMENT = 'amplitude_adjustment'
+  # If custom wave type is specified: this template formula is used.
+  # Must be a string with {variables} that will be replaced into the actual
+  # values.
+  CUSTOM_WAVE_FORMULA = 'custom_wave_formula'
   # Debug mode allows printing formulas and others.
   DEBUG = 'debug'
   FREQUENCY = 'frequency'
@@ -33,6 +37,7 @@ _DEFAULT_WAVE_OPTIONS = {
     SoundWaveOption.AMPLITUDE: wave_math.get_max_value_from_bytes(
         wave_settings.BYTES_OF_DATA, True) / 2,
     SoundWaveOption.AMPLITUDE_ADJUSTMENT: 1,  # 100%
+    SoundWaveOption.CUSTOM_WAVE_FORMULA: '',
     SoundWaveOption.DEBUG: False,
     SoundWaveOption.FREQUENCY: 440,
     SoundWaveOption.MAX_WAVE_VALUE: wave_math.get_max_value_from_bytes(
@@ -50,6 +55,7 @@ class SoundWaveType(enum.Enum):
   X2_WAVE = 'x**2'
   RANDOM_WAVE = 'random'
   SAWTOOTH_WAVE = 'sawtooth'
+  CUSTOM_WAVE = 'custom'
 
 
 # Configuration of the wave options.
@@ -118,6 +124,18 @@ class WaveSoundGenerator(object):
       Whether to apply debug mode.
     """
     return self._get_wave_option_value(wave_options, SoundWaveOption.DEBUG)
+
+  def _get_custom_wave_formula(self, wave_options: WaveOptions) -> Text:
+    """Gets custom formula template for custom wave formula type.
+
+    Args:
+      wave_options: Wave configuration.
+
+    Returns:
+      Custom wave formula text template
+    """
+    return self._get_wave_option_value(
+        wave_options, SoundWaveOption.CUSTOM_WAVE_FORMULA)
 
   def _get_volume(self, wave_options: WaveOptions) -> float:
     """Gets the volume based on wave options.
@@ -352,6 +370,35 @@ class WaveSoundGenerator(object):
               f'{sample_frame}: ({a} * ({x} + {b})^2 + {c}) = {sample_value}')
         return _normalize_sample_value(sample_value)
       return x2_sound_wave
+
+    if sound_wave_type == SoundWaveType.CUSTOM_WAVE:
+      def custom_sound_wave(sample_frame: int) -> int:
+        """Creates a sound wave with given templated formula.
+
+        Custom formula must be specified in:
+          wave_options[SoundWaveOption.CUSTOM_WAVE_FORMULA]
+
+        Parameters are replaced for values. Supported parameters:
+          {x}: Sample frame.
+          {min_sample}: Minimum value a frame can take.
+          {max_sample}: Maximum value a frame can take.
+          {sample_range}: Difference between max and minimum value.
+          {samples_per_cycle}: Samples per cycle.
+        """
+        custom_formula = self._get_custom_wave_formula(wave_options)
+        replaced_formula = custom_formula.format(
+            x=sample_frame,
+            min_sample=min_sample_value,
+            max_sample=max_sample_value,
+            sample_range=sample_value_range,
+            samples_per_cycle=samples_per_cycle,
+        )
+        # This is an unsafe operation. Use and support at your own risk.
+        sample_value = eval(replaced_formula)
+        if debug_mode:
+          print(f'{sample_frame}: {replaced_formula} = {sample_value}')
+        return _normalize_sample_value(sample_value)
+      return custom_sound_wave
 
     raise ValueError(f'Unknown wave type: {sound_wave_type}')
 
