@@ -10,6 +10,9 @@ _SOUND_FILE_NAME = 'sounds/sound.wav'
 _FILE_DURATION = 3  # In seconds.
 
 _SOUND_WAVE_OPTIONS = {
+    wave_generator.SoundWaveOption.CUSTOM_WAVE_FORMULA: (
+        '({x} + {min_sample}) / {max_sample}'),
+    wave_generator.SoundWaveOption.WAVE_TRANSFORMER: lambda x: int(x / 5),
     wave_generator.SoundWaveOption.DEBUG: False,
     wave_generator.SoundWaveOption.FREQUENCY: 440,
 }
@@ -28,6 +31,7 @@ if __name__ == "__main__":
       wave_generator.SoundWaveType.X2_WAVE,
       wave_generator.SoundWaveType.SIN_WAVE,
       wave_generator.SoundWaveType.RANDOM_WAVE,
+      wave_generator.SoundWaveType.CUSTOM_WAVE,
   ]
 
   channels_data = [
