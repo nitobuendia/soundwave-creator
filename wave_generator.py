@@ -345,7 +345,6 @@ class WaveSoundGenerator(object):
     if sound_wave_type == SoundWaveType.RANDOM_WAVE:
       def random_sound_wave(sample_frame: int) -> int:
         """Gets a random value wave."""
-        del sample_frame  # Unused, but intended to keep same fn signature.
         random_sample = random.randint(min_sample_value, max_sample_value)
         if debug_mode:
           print(f'{sample_frame}: {random_sample}')
