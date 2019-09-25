@@ -30,6 +30,10 @@ class SoundWaveOption(enum.Enum):
   SAMPLE_RATE = 'sample_rate'
   # Volume of the sample. Floats from 0 to 1 are recommended values.
   VOLUME = 'volume'
+  # A formula that is applied to transform the wave shape. This function gets
+  # applied to each sample_value at the end of the calculation process.
+  # Signature must be Callable[[int], int].
+  WAVE_TRANSFORMER = 'wave_transformer'
 
 
 _DEFAULT_WAVE_OPTIONS = {
@@ -46,6 +50,7 @@ _DEFAULT_WAVE_OPTIONS = {
         wave_settings.BYTES_OF_DATA, wave_settings.SIGNED_INTEGER) + 1,
     SoundWaveOption.SAMPLE_RATE: 44100,
     SoundWaveOption.VOLUME: 1,  # 100%
+    SoundWaveOption.WAVE_TRANSFORMER: lambda x: x,
 }
 
 
@@ -233,6 +238,18 @@ class WaveSoundGenerator(object):
     return self._get_wave_option_value(
         wave_options, SoundWaveOption.SAMPLE_RATE)
 
+  def _get_wave_transformer(self, wave_options: WaveOptions) -> WaveFunction:
+    """Gets the wave transformer function.
+
+    Args:
+      wave_options: Wave configuration.
+
+    Returns:
+      Wave transformer.
+    """
+    return self._get_wave_option_value(
+        wave_options, SoundWaveOption.WAVE_TRANSFORMER)
+
   def _get_samples_per_cycle(self, wave_options: WaveOptions) -> int:
     """Gets number of samples that will be generated per wave cycle.
 
@@ -296,6 +313,7 @@ class WaveSoundGenerator(object):
         - Adjust sample value by volume.
         - Limit value to a specific range.
         - Transform value to integer.
+        - Applies custom wave transformer.
 
       Args:
         sample_value: Value of the sample.
@@ -307,6 +325,9 @@ class WaveSoundGenerator(object):
       sample_value = wave_math.limit_value_to_range(
           sample_value, min_sample_value, max_sample_value)
       sample_value = int(sample_value)
+
+      custom_transformer = self._get_wave_transformer(wave_options)
+      sample_value = custom_transformer(sample_value)
       return sample_value
 
     if sound_wave_type == SoundWaveType.SIN_WAVE:
